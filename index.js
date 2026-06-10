@@ -1,25 +1,8 @@
+const { SYSTEM_PROMPT } = require('./prompt');
+
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const GEMINI_KEY     = process.env.GEMINI_API_KEY;
 const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${GEMINI_KEY}`;
-
-const SYSTEM_PROMPT = `Tu es l'assistant virtuel d'AbShop, une boutique en ligne algérienne.
-Tu réponds uniquement en français, de façon naturelle et chaleureuse.
-Tu es serviable, concis (2-3 phrases max) et toujours poli.
-
-Informations sur AbShop :
-- Produits : électronique, vêtements, accessoires
-- Livraison : partout en Algérie, 3 à 5 jours ouvrables
-- Livraison gratuite à partir de 5000 DA
-- Paiement : carte bancaire, virement, paiement à la livraison
-- Retours : 14 jours après réception
-- Remboursement : sous 5 jours après retour reçu
-- Support : contact@abshop.com, réponse sous 24h
-- Promos : -10% sur la première commande via newsletter
-
-Règles :
-- Si la question ne concerne pas AbShop, réponds poliment.
-- Ne jamais inventer de prix spécifiques.
-- Toujours proposer contact@abshop.com pour les cas complexes.`;
 
 const userHistories = {};
 
@@ -29,7 +12,7 @@ async function askGemini(userId, userMessage) {
 
   const contents = [
     { role: 'user',  parts: [{ text: SYSTEM_PROMPT }] },
-    { role: 'model', parts: [{ text: 'Compris ! Je suis l\'assistant AbShop.' }] },
+    { role: 'model', parts: [{ text: 'Compris ! Je suis l\'assistant virtuel de Telopex, prêt à aider.' }] },
     ...history.slice(-10).map(m => ({
       role:  m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }]
@@ -37,17 +20,18 @@ async function askGemini(userId, userMessage) {
     { role: 'user', parts: [{ text: userMessage }] }
   ];
 
-  const res   = await fetch(GEMINI_URL, {
+  const res  = await fetch(GEMINI_URL, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({
       contents,
-      generationConfig: { maxOutputTokens: 300, temperature: 0.7 }
+      generationConfig: { maxOutputTokens: 400, temperature: 0.7 }
     })
   });
 
   const data  = await res.json();
-  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Désolé, je n\'ai pas pu répondre.';
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text
+    || 'Désolé, je n\'ai pas pu traiter votre demande. Contactez-nous sur contact@telopex.online.';
 
   history.push({ role: 'user',      content: userMessage });
   history.push({ role: 'assistant', content: reply });
@@ -77,9 +61,9 @@ async function getUpdates(offset = 0) {
 }
 
 async function main() {
-  console.log('=== AbShop Bot Telegram démarré ===');
-  console.log(`Token: ${TELEGRAM_TOKEN ? '✓' : '✗ MANQUANT'}`);
-  console.log(`Gemini: ${GEMINI_KEY ? '✓' : '✗ MANQUANT'}\n`);
+  console.log('=== Telopex Bot Telegram démarré ===');
+  console.log(`Token Telegram : ${TELEGRAM_TOKEN ? '✓' : '✗ MANQUANT'}`);
+  console.log(`Clé Gemini     : ${GEMINI_KEY     ? '✓' : '✗ MANQUANT'}\n`);
 
   let offset = 0;
 
@@ -90,7 +74,7 @@ async function main() {
       for (const update of updates) {
         offset = update.update_id + 1;
 
-        const msg  = update.message;
+        const msg = update.message;
         if (!msg || !msg.text) continue;
 
         const chatId = msg.chat.id;
@@ -102,32 +86,63 @@ async function main() {
 
         if (text === '/start') {
           await sendMessage(chatId,
-            `👋 Bonjour *${name}* ! Je suis l'assistant *AbShop*.\n\nJe suis là pour répondre à toutes vos questions. Comment puis-je vous aider ? 😊`
+            `👋 Bonjour *${name}* ! Je suis l'assistant virtuel de *Telopex*. ⚡\n\n` +
+            `Telopex conçoit des *bots IA*, automatise vos processus et crée des *sites web* modernes.\n\n` +
+            `Comment puis-je vous aider aujourd'hui ? 😊`
+          );
+          continue;
+        }
+
+        if (text === '/services') {
+          await sendMessage(chatId,
+            `*Nos services Telopex :* ⚡\n\n` +
+            `🤖 *Bots IA Multi-canaux* — WhatsApp, Telegram, Messenger, Instagram\n` +
+            `⚡ *Automation* — Connectez tous vos outils en un workflow\n` +
+            `🌐 *Développement Web* — Sites modernes et responsives\n` +
+            `🎓 *Formations* — Apprenez à créer vos propres bots IA\n\n` +
+            `Pour un devis : contact@telopex.online 📩`
+          );
+          continue;
+        }
+
+        if (text === '/contact') {
+          await sendMessage(chatId,
+            `*Contactez Telopex :* 📞\n\n` +
+            `📧 Email : contact@telopex.online\n` +
+            `📱 WhatsApp : +225 89 15 67 54\n` +
+            `🌐 Site : https://telopex.online\n\n` +
+            `Réponse garantie sous 24h. ✅`
           );
           continue;
         }
 
         if (text === '/reset') {
           userHistories[userId] = [];
-          await sendMessage(chatId, '🔄 Conversation réinitialisée !');
+          await sendMessage(chatId, '🔄 Conversation réinitialisée ! Comment puis-je vous aider ?');
           continue;
         }
 
         if (text === '/aide') {
           await sendMessage(chatId,
-            `*Commandes disponibles :*\n/start — Démarrer\n/reset — Nouvelle conversation\n/aide — Aide\n\nOu posez directement votre question ! 😊`
+            `*Commandes disponibles :*\n\n` +
+            `/start — Démarrer\n` +
+            `/services — Voir nos services\n` +
+            `/contact — Nous contacter\n` +
+            `/reset — Nouvelle conversation\n` +
+            `/aide — Afficher cette aide\n\n` +
+            `Ou posez directement votre question ! 😊`
           );
           continue;
         }
 
-        await sendMessage(chatId, '⏳ ...');
+        await sendMessage(chatId, '⏳');
         const reply = await askGemini(userId, text);
         await sendMessage(chatId, reply);
-        console.log(`[AbShop] ${reply}\n`);
+        console.log(`[Telopex Bot] ${reply}\n`);
       }
 
     } catch (err) {
-      console.error('Erreur:', err.message);
+      console.error('Erreur :', err.message);
       await new Promise(r => setTimeout(r, 3000));
     }
   }
